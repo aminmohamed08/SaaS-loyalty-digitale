@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>لوحة المدير العام - نظام الولاء</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="logo-mybusiness_fikra-automation.png">
+    <meta name="theme-color" content="#1e293b">
+
+    <style>
+        :root { --ease-out: cubic-bezier(0.16, 1, 0.3, 1); }
+        body { font-family: 'Tajawal', sans-serif; }
+
+        @keyframes rise-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+        .reveal { opacity: 0; animation: rise-in 450ms var(--ease-out) forwards; animation-delay: calc(var(--i, 0) * 70ms); }
+
+        .btn { transition: transform 150ms var(--ease-out), background-color 150ms ease-out, box-shadow 150ms ease-out, opacity 150ms ease-out; will-change: transform; }
+        .btn:hover { transform: translateY(-1px); }
+        .btn:active { transform: translateY(0) scale(0.97); }
+        .btn:focus-visible, .field:focus-visible, .tab:focus-visible, .switch:focus-visible { outline: 2px solid #34d399; outline-offset: 2px; }
+        .btn.is-loading { pointer-events: none; opacity: 0.85; }
+        .field { transition: border-color 150ms ease-out, box-shadow 150ms ease-out; }
+        .field:focus { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); }
+
+        .spinner { display: none; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff; border-radius: 9999px; animation: spin 700ms linear infinite; }
+        .btn.is-loading .spinner, .spinner.on { display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* التبويبات */
+        .tab { position: relative; transition: color 150ms ease-out, background-color 150ms ease-out; }
+        .tab::after { content: ""; position: absolute; inset-inline: 12px; bottom: 0; height: 2px; background: #34d399; border-radius: 2px; transform: scaleX(0); transition: transform 250ms var(--ease-out); }
+        .tab[aria-selected="true"] { color: #34d399; }
+        .tab[aria-selected="true"]::after { transform: scaleX(1); }
+        .tab-panel { animation: rise-in 350ms var(--ease-out); }
+
+        /* مفتاح التفعيل */
+        .switch { width: 40px; height: 22px; border-radius: 9999px; background: #475569; position: relative; transition: background-color 200ms ease-out; direction: ltr; }
+        .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 9999px; background: #fff; transition: transform 250ms var(--ease-out); }
+        .switch[aria-checked="true"] { background: #059669; }
+        .switch[aria-checked="true"]::after { transform: translateX(18px); }
+
+        /* النافذة المنبثقة */
+        .backdrop { opacity: 0; pointer-events: none; transition: opacity 200ms ease-out; }
+        .backdrop.is-open { opacity: 1; pointer-events: auto; }
+        .sheet { transform: translateY(24px); opacity: 0; transition: transform 350ms var(--ease-out), opacity 250ms ease-out; }
+        .backdrop.is-open .sheet { transform: translateY(0); opacity: 1; }
+
+        /* اختيار القالب */
+        .tpl input:checked + div { border-color: #34d399; box-shadow: 0 0 0 3px rgba(16,185,129,.2); }
+        .tpl input:focus-visible + div { outline: 2px solid #34d399; outline-offset: 2px; }
+        .tpl div { transition: border-color 150ms ease-out, box-shadow 150ms ease-out, transform 150ms var(--ease-out); }
+        .tpl:hover div { transform: translateY(-1px); }
+
+        /* إشعار */
+        #toast { transform: translate(-50%, 16px); opacity: 0; transition: transform 250ms var(--ease-out), opacity 200ms ease-out; pointer-events: none; }
+        #toast.is-on { transform: translate(-50%, 0); opacity: 1; }
+
+        .no-scrollbar { scrollbar-width: none; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0ms !important; transition-duration: 1ms !important; }
+            .reveal { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-[#0f172a] text-slate-100 min-h-screen">
+
+    <!-- تحميل -->
+    <div id="view-boot" class="min-h-screen flex items-center justify-center" aria-live="polite">
+        <span class="spinner on !w-7 !h-7" aria-label="جارٍ التحميل"></span>
+    </div>
+
+    <!-- تسجيل الدخول -->
+    <div id="view-login" class="hidden">
+        <div class="min-h-screen flex items-center justify-center p-4">
+            <div class="w-full max-w-md bg-[#1e293b] rounded-3xl shadow-2xl border border-slate-700 p-6 space-y-4">
+                <div class="text-center space-y-2 reveal" style="--i:0">
+                    <div class="w-16 h-16 bg-emerald-500/20 rounded-2xl mx-auto flex items-center justify-center border border-emerald-500/30 overflow-hidden text-xl">🛡️</div>
+                    <h1 class="text-lg font-black text-emerald-400">المدير العام</h1>
+                    <p class="text-xs text-slate-400">دخول مخصص للمسؤول فقط، مع تحقق بخطوتين</p>
+                </div>
+                <form onsubmit="handleLogin(event)" class="space-y-3">
+                    <div class="reveal" style="--i:1">
+                        <label for="login-email" class="block text-xs text-slate-300 mb-1">البريد الإلكتروني</label>
+                        <input type="email" id="login-email" required autocomplete="email" dir="ltr" class="field w-full px-4 py-3 bg-[#0f172a] border border-slate-700 rounded-xl text-sm text-right focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div class="reveal" style="--i:2">
+                        <label for="login-password" class="block text-xs text-slate-300 mb-1">كلمة المرور</label>
+                        <input type="password" id="login-password" required autocomplete="current-password" dir="ltr" class="field w-full px-4 py-3 bg-[#0f172a] border border-slate-700 rounded-xl text-sm text-right focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <button type="submit" id="login-btn" class="btn reveal w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-sm shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2" style="--i:3">
+                        <span class="spinner" aria-hidden="true"></span><span>دخول</span>
+                    </button>
+                </form>
+                <div id="login-error" class="text-xs text-center text-red-400 hidden" role="alert"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- إعداد المصادقة الثنائية (إجباري عند أول دخول) -->
+    <div id="view-enroll" class="hidden">
+        <div class="min-h-screen flex items-center justify-center p-4">
+            <div class="w-full max-w-md bg-[#1e293b] rounded-3xl shadow-2xl border border-slate-700 p-6 space-y-4">
+                <div class="text-center space-y-1">
+                    <h1 class="text-lg font-black text-emerald-400">فعّل التحقق بخطوتين</h1>
+                    <p class="text-xs text-slate-400">هذه الخطوة إجبارية للوصول إلى لوحة المدير</p>
+                </div>
+                <div id="gate-enroll"></div>
+                <button onclick="logout()" class="btn w-full py-2 text-xs text-slate-400 hover:text-slate-200">تسجيل الخروج</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- إدخال رمز التحقق -->
+    <div id="view-verify" class="hidden">
+        <div class="min-h-screen flex items-center justify-center p-4">
+            <div class="w-full max-w-md bg-[#1e293b] rounded-3xl shadow-2xl border border-slate-700 p-6 space-y-4">
+                <div class="text-center space-y-1">
+                    <div class="text-3xl" aria-hidden="true">🔐</div>
+                    <h1 class="text-lg font-black text-emerald-400">رمز التحقق</h1>
+                    <p class="text-xs text-slate-400">أدخل الرمز المكوّن من 6 أرقام من تطبيق المصادقة</p>
+                </div>
+                <form onsubmit="handleVerify(event)" class="space-y-3">
+                    <input type="text" id="verify-code" required inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" dir="ltr" placeholder="000000" aria-label="رمز التحقق" class="field w-full px-4 py-3 bg-[#0f172a] border border-slate-700 rounded-xl text-center text-xl tracking-[0.5em] font-mono focus:outline-none focus:border-emerald-500">
+                    <button type="submit" id="verify-btn" class="btn w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2">
+                        <span class="spinner" aria-hidden="true"></span><span>تأكيد</span>
+                    </button>
+                </form>
+                <div id="verify-error" class="text-xs text-center text-red-400 hidden" role="alert"></div>
+                <button onclick="logout()" class="btn w-full py-2 text-xs text-slate-400 hover:text-slate-200">تسجيل الخروج</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- التطبيق -->
+    <div id="view-app" class="hidden">
+        <header class="sticky top-0 z-40 bg-[#1e293b] border-b border-slate-700 pt-[env(safe-area-inset-top)]">
+            <div class="max-w-6xl mx-auto px-4 flex items-center justify-between gap-3 h-14">
+                <div class="flex items-center gap-2.5 shrink-0">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 overflow-hidden flex items-center justify-center">
+                        <img src="logo-mybusiness_fikra-automation.png" alt="" class="w-full h-full object-cover" onerror="this.remove()">
+                    </div>
+                    <span class="text-sm font-black text-emerald-400 hidden sm:inline">المدير العام</span>
+                </div>
+                <nav id="tabs" role="tablist" aria-label="أقسام اللوحة" class="hidden md:flex items-stretch h-14 gap-1"></nav>
+                <div class="flex items-center gap-2 min-w-0">
+                    <span id="admin-email" class="text-[11px] text-slate-400 truncate max-w-[140px] hidden sm:inline" dir="ltr"></span>
+                    <button onclick="logout()" class="btn px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl text-xs">خروج 🚪</button>
+                </div>
+            </div>
+            <nav id="tabs-mobile" role="tablist" aria-label="أقسام اللوحة" class="md:hidden flex items-stretch h-11 gap-1 px-3 overflow-x-auto no-scrollbar border-t border-slate-700/60"></nav>
+        </header>
+
+        <main class="max-w-6xl mx-auto p-4 pb-[calc(2rem+env(safe-area-inset-bottom))] space-y-4">
+            <div id="mfa-warning" class="hidden bg-amber-500/10 border border-amber-500/30 text-amber-300 rounded-xl px-3 py-2 text-xs" role="alert">⚠️ التحقق بخطوتين معطّل مؤقتاً. أعد تفعيله قبل الإطلاق (REQUIRE_MFA).</div>
+
+            <!-- التبويب 1: التحليلات -->
+            <section id="tab-analytics" class="tab-panel hidden space-y-4" role="tabpanel">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-base font-black">نظرة عامة</h2>
+                    <button onclick="loadAnalytics()" class="btn px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs">تحديث ↻</button>
+                </div>
+                <div id="stat-cards" class="grid grid-cols-2 lg:grid-cols-4 gap-3"></div>
+                <div class="bg-[#1e293b] border border-slate-700 rounded-2xl overflow-hidden">
+                    <div class="px-4 py-3 border-b border-slate-700 text-sm font-bold">تفصيل حسب المتجر</div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm min-w-[560px]">
+                            <thead class="text-[11px] text-slate-400 bg-slate-900/40">
+                                <tr><th class="p-3 text-start font-medium">المتجر</th><th class="p-3 font-medium">الزبائن</th><th class="p-3 font-medium">جدد اليوم</th><th class="p-3 font-medium">جدد (7 أيام)</th><th class="p-3 font-medium">الهدايا المسلّمة</th></tr>
+                            </thead>
+                            <tbody id="stats-body" class="text-center"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- التبويب 2: إدارة المتاجر -->
+            <section id="tab-shops" class="tab-panel hidden space-y-4" role="tabpanel">
+                <div class="flex items-center justify-between gap-2">
+                    <h2 class="text-base font-black">إدارة المتاجر</h2>
+                    <button onclick="openShopModal()" class="btn px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-emerald-600/20">➕ إضافة تاجر</button>
+                </div>
+                <div class="bg-[#1e293b] border border-slate-700 rounded-2xl overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm min-w-[720px]">
+                            <thead class="text-[11px] text-slate-400 bg-slate-900/40">
+                                <tr><th class="p-3 text-start font-medium">المتجر</th><th class="p-3 text-start font-medium">البريد</th><th class="p-3 text-start font-medium">القالب</th><th class="p-3 font-medium">النقاط</th><th class="p-3 font-medium">مفعّل</th><th class="p-3 font-medium"><span class="sr-only">إجراءات</span></th></tr>
+                            </thead>
+                            <tbody id="shops-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- التبويب 3: الأمان -->
+            <section id="tab-security" class="tab-panel hidden space-y-4" role="tabpanel">
+                <h2 class="text-base font-black">الأمان والمصادقة الثنائية</h2>
+                <div id="sec-info" class="bg-[#1e293b] border border-slate-700 rounded-2xl p-4 text-xs space-y-1.5"></div>
+                <div class="bg-[#1e293b] border border-slate-700 rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-bold">أجهزة المصادقة (TOTP)</h3>
+                        <button onclick="startEnroll('sec')" class="btn px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl text-xs">➕ إضافة جهاز</button>
+                    </div>
+                    <ul id="factor-list" class="space-y-2"></ul>
+                    <div id="sec-enroll"></div>
+                </div>
+            </section>
+
+            <!-- مكان لإضافة تبويبات مستقبلية: أضف <section id="tab-xxx"> ثم سجّلها في مصفوفة TABS -->
+        </main>
+    </div>
+
+    <!-- نافذة إضافة/تعديل تاجر -->
+    <div id="shop-modal" class="backdrop fixed inset-0 z-50 bg-slate-950/70 flex items-end sm:items-center justify-center p-4" onclick="if(event.target===this)closeShopModal()">
+        <div class="sheet w-full max-w-lg max-h-[92vh] overflow-y-auto bg-[#1e293b] border border-slate-700 rounded-3xl p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+            <h3 id="modal-title" class="text-sm font-black text-emerald-400 mb-4"></h3>
+            <form onsubmit="saveShop(event)" class="space-y-3" id="shop-form">
+                <div class="grid sm:grid-cols-2 gap-3">
+                    <div>
+                        <label for="f-name" class="block text-xs text-slate-300 mb-1">اسم المتجر</label>
+                        <input id="f-name" required maxlength="60" class="field w-full px-3 py-2.5 bg-[#0f172a] border border-slate-700 rounded-xl text-xs focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label for="f-id" class="block text-xs text-slate-300 mb-1">المعرّف (يظهر في الرابط)</label>
+                        <input id="f-id" required maxlength="40" dir="ltr" placeholder="cafe_best" pattern="[a-z0-9][a-z0-9_\-]{1,39}" class="field w-full px-3 py-2.5 bg-[#0f172a] border border-slate-700 rounded-xl text-xs text-right focus:outline-none focus:border-emerald-500 disabled:opacity-60">
+                    </div>
+                    <div>
+                        <label for="f-email" class="block text-xs text-slate-300 mb-1">بريد التاجر</label>
+                        <input id="f-email" type="email" required dir="ltr" class="field w-full px-3 py-2.5 bg-[#0f172a] border border-slate-700 rounded-xl text-xs text-right focus:outline-none focus:border-emerald-500 disabled:opacity-60">
+                    </div>
+                    <div id="pass-wrap">
+                        <label for="f-pass" class="block text-xs text-slate-300 mb-1">كلمة المرور (8 أحرف على الأقل)</label>
+                        <div class="flex gap-2">
+                            <input id="f-pass" minlength="8" autocomplete="off" dir="ltr" class="field flex-1 min-w-0 px-3 py-2.5 bg-[#0f172a] border border-slate-700 rounded-xl text-xs text-right font-mono focus:outline-none focus:border-emerald-500">
+                            <button type="button" onclick="$('f-pass').value=genPassword()" class="btn px-3 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs">توليد</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="f-max" class="block text-xs text-slate-300 mb-1">عدد النقاط للهدية (1–20)</label>
+                        <input id="f-max" type="number" min="1" max="20" value="5" required class="field w-full px-3 py-2.5 bg-[#0f172a] border border-slate-700 rounded-xl text-xs focus:outline-none focus:border-emerald-500">
+                    </div>
+                </div>
+
+                <fieldset>
+                    <legend class="block text-xs text-slate-300 mb-1.5">قالب البطاقة</legend>
+                    <div id="tpl-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+                </fieldset>
+
+                <div class="grid sm:grid-cols-2 gap-3">
+                    <div>
+                        <label for="f-logo" class="block text-xs text-slate-300 mb-1">رابط الشعار (https)</label>
+                        <div class="flex items-center gap-2">
+                            <input id="f-logo" type="url" dir="ltr" placeholder="https://..." class="field flex-1 min-w-0 px-3 py-2.5 bg-[#0f172a] border border-slate-700 rounded-xl text-xs text-right focus:outline-none focus:border-emerald-500">
+                            <div class="w-10 h-10 rounded-lg bg-slate-800 border border-slate-700 overflow-hidden shrink-0"><img id="logo-prev" alt="" class="w-full h-full object-cover hidden"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="f-cover" class="block text-xs text-slate-300 mb-1">رابط صورة الغلاف / البانر (https)</label>
+                        <input id="f-cover" type="url" dir="ltr" placeholder="https://..." class="field w-full px-3 py-2.5 bg-[#0f172a] border border-slate-700 rounded-xl text-xs text-right focus:outline-none focus:border-emerald-500">
+                    </div>
+                </div>
+                <div class="h-24 rounded-xl bg-slate-800 border border-slate-700 overflow-hidden"><img id="cover-prev" alt="" class="w-full h-full object-cover hidden"></div>
+
+                <div>
+                    <label for="f-promo" class="block text-xs text-slate-300 mb-1">الإشعار الترويجي (اختياري)</label>
+                    <input id="f-promo" maxlength="160" class="field w-full px-3 py-2.5 bg-[#0f172a] border border-slate-700 rounded-xl text-xs focus:outline-none focus:border-emerald-500">
+                </div>
+
+                <div id="form-error" class="text-xs text-center text-red-400 hidden" role="alert"></div>
+                <div class="flex gap-2 pt-1">
+                    <button type="submit" id="save-btn" class="btn flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2">
+                        <span class="spinner" aria-hidden="true"></span><span id="save-label">حفظ</span>
+                    </button>
+                    <button type="button" onclick="closeShopModal()" class="btn px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-100 font-semibold rounded-xl text-xs">إلغاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-6 left-1/2 z-[60] px-4 py-2.5 rounded-xl text-xs font-medium shadow-2xl border max-w-[90vw] text-center" role="status" aria-live="polite"></div>
+
+    <script>
+        /* ========= الإعدادات ========= */
+        const SUPABASE_URL = "https://wjmcxewruhvtgffkfmlh.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqbWN4ZXdydWh2dGdmZmtmbWxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzOTg5MTgsImV4cCI6MjEwNjk3NDkxOH0.2u584JsGX96zEFOxv6s71BEonuuKIVh4xoCoQHgWxLQ";
+        const ADMIN_EMAIL = "mohamedaminelaada2008@gmail.com";   // يجب أن يطابق دالة is_super_admin() في SQL
+        const REQUIRE_MFA = false;   // false = تعطيل التحقق بخطوتين مؤقتاً. غيّرها إلى true لإعادة تفعيله
+        const SHOP_COLS = 'id,name,email,max_points,promo_text,logo_url,cover_url,template_style,is_active';
+
+        const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
+        // عميل منفصل لإنشاء حسابات التجار حتى لا تُستبدل جلسة المدير
+        const signupClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'sb-admin-signup-tmp' }
+        });
+
+        const TEMPLATES = [
+            { id: 'classic_green', label: 'كلاسيكي أخضر', from: '#10b981', to: '#047857' },
+            { id: 'modern_dark',   label: 'عصري داكن',    from: '#38bdf8', to: '#0f172a' },
+            { id: 'luxury_gold',   label: 'ذهبي فاخر',    from: '#fbbf24', to: '#78350f' },
+            { id: 'minimalist',    label: 'بسيط',         from: '#f1f5f9', to: '#94a3b8' }
+        ];
+
+        /* سجل التبويبات: لإضافة ميزة جديدة أضف <section id="tab-<id>"> وسطراً هنا */
+        const TABS = [
+            { id: 'analytics', label: 'التحليلات',     icon: '📊', onShow: () => loadAnalytics() },
+            { id: 'shops',     label: 'إدارة المتاجر', icon: '🏪', onShow: () => loadShops() },
+            { id: 'security',  label: 'الأمان',        icon: '🔐', onShow: () => loadSecurity() }
+        ];
+
+        /* ========= أدوات ========= */
+        const $ = (id) => document.getElementById(id);
+        const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const safeUrl = (u) => (/^https:\/\//i.test((u || '').trim()) ? u.trim() : '');
+        const num = (n) => Number(n || 0).toLocaleString('en-US');
+        const VIEWS = ['boot', 'login', 'enroll', 'verify', 'app'];
+        const showView = (n) => VIEWS.forEach(v => $('view-' + v).classList.toggle('hidden', v !== n));
+        const setLoading = (btn, on) => { btn.classList.toggle('is-loading', on); btn.disabled = on; };
+        const showMsg = (id, text) => { const el = $(id); el.textContent = text; el.classList.toggle('hidden', !text); };
+        const errText = (e) => `${e.code || e.status || ''} ${e.message || ''}`.trim();
+
+        let toastTimer;
+        function toast(text, ok = true) {
+            const t = $('toast');
+            t.textContent = text;
+            t.className = `fixed bottom-6 left-1/2 z-[60] px-4 py-2.5 rounded-xl text-xs font-medium shadow-2xl border max-w-[90vw] text-center is-on ${ok ? 'bg-emerald-900 text-emerald-200 border-emerald-700' : 'bg-red-900 text-red-200 border-red-700'}`;
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => t.classList.remove('is-on'), 3500);
+        }
+
+        function genPassword() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+            return Array.from(crypto.getRandomValues(new Uint8Array(12)), b => chars[b % chars.length]).join('');
+        }
+
+        /* ========= الدخول و MFA ========= */
+        window.addEventListener('DOMContentLoaded', () => {
+            db.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_OUT') showView('login'); });
+            route();
+        });
+
+        async function route() {
+            showView('boot');
+            try {
+                const { data: { session } } = await db.auth.getSession();
+                if (!session) return showView('login');
+                if ((session.user.email || '').toLowerCase() !== ADMIN_EMAIL) {
+                    await db.auth.signOut();
+                    showView('login');
+                    return showMsg('login-error', '❌ هذا الحساب غير مصرح له بالدخول.');
+                }
+                if (!REQUIRE_MFA) return enterApp(session.user);
+
+                const { data: aal } = await db.auth.mfa.getAuthenticatorAssuranceLevel();
+                if (aal.currentLevel === 'aal2') return enterApp(session.user);
+
+                const { data: f, error } = await db.auth.mfa.listFactors();
+                if (error) throw error;
+                if (f.totp.length > 0) {
+                    verifyFactorId = f.totp[0].id;
+                    $('verify-code').value = '';
+                    showView('verify');
+                    $('verify-code').focus();
+                } else {
+                    showView('enroll');
+                    startEnroll('gate');
+                }
+            } catch (err) {
+                showView('login');
+                showMsg('login-error', '⚠️ ' + errText(err));
+            }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const btn = $('login-btn');
+            showMsg('login-error', '');
+            setLoading(btn, true);
+            try {
+                const { error } = await db.auth.signInWithPassword({ email: $('login-email').value.trim().toLowerCase(), password: $('login-password').value });
+                if (error) return showMsg('login-error', '❌ البريد أو كلمة المرور غير صحيحة.');
+                $('login-password').value = '';
+                await route();
+            } catch (err) {
+                showMsg('login-error', '⚠️ ' + errText(err));
+            } finally { setLoading(btn, false); }
+        }
+
+        let verifyFactorId = '';
+        async function handleVerify(e) {
+            e.preventDefault();
+            const btn = $('verify-btn');
+            showMsg('verify-error', '');
+            setLoading(btn, true);
+            try {
+                const { error } = await db.auth.mfa.challengeAndVerify({ factorId: verifyFactorId, code: $('verify-code').value.trim() });
+                if (error) return showMsg('verify-error', '❌ الرمز غير صحيح أو منتهي. حاول مرة أخرى.');
+                await route();
+            } catch (err) {
+                showMsg('verify-error', '⚠️ ' + errText(err));
+            } finally { setLoading(btn, false); }
+        }
+
+        async function logout() {
+            try { await db.auth.signOut(); } catch (e) {}
+            showView('login');
+        }
+
+        /* ---- إعداد TOTP (يُستعمل في شاشة الدخول وفي تبويب الأمان) ---- */
+        let enrollingId = '';
+        const enrollHTML = (p) => `
+            <div class="space-y-3 text-center">
+                <p class="text-xs text-slate-300 leading-relaxed">امسح الرمز بتطبيق المصادقة (Google Authenticator أو Authy)، ثم أدخل الرمز المكوّن من 6 أرقام.</p>
+                <div class="bg-white p-2 rounded-xl inline-block"><img id="${p}-qr" alt="رمز QR للمصادقة" class="w-40 h-40"></div>
+                <div class="text-[11px] text-slate-400">أو أدخل المفتاح يدوياً:<br><code id="${p}-secret" dir="ltr" class="font-mono text-emerald-300 break-all select-all"></code></div>
+                <input id="${p}-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" dir="ltr" placeholder="000000" aria-label="رمز التحقق" class="field w-full px-4 py-3 bg-[#0f172a] border border-slate-700 rounded-xl text-center text-xl tracking-[0.5em] font-mono focus:outline-none focus:border-emerald-500">
+                <button id="${p}-btn" onclick="confirmEnroll('${p}')" class="btn w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2"><span class="spinner" aria-hidden="true"></span><span>تأكيد وتفعيل</span></button>
+                <div id="${p}-err" class="text-xs text-red-400 hidden" role="alert"></div>
+            </div>`;
+
+        async function startEnroll(p) {
+            const box = $(p === 'gate' ? 'gate-enroll' : 'sec-enroll');
+            box.innerHTML = '<div class="py-6 flex justify-center"><span class="spinner on !w-6 !h-6"></span></div>';
+            try {
+                // حذف المحاولات غير المكتملة حتى لا يحدث تعارض في الاسم
+                const { data: list } = await db.auth.mfa.listFactors();
+                for (const f of (list?.all || []).filter(f => f.factor_type === 'totp' && f.status === 'unverified')) {
+                    await db.auth.mfa.unenroll({ factorId: f.id });
+                }
+                const { data, error } = await db.auth.mfa.enroll({ factorType: 'totp', friendlyName: `Admin ${new Date().toISOString().slice(0, 10)} ${Math.random().toString(36).slice(2, 6)}` });
+                if (error) throw error;
+                enrollingId = data.id;
+                box.innerHTML = enrollHTML(p);
+                $(p + '-qr').src = data.totp.qr_code;
+                $(p + '-secret').textContent = data.totp.secret;
+                $(p + '-code').focus();
+            } catch (err) {
+                box.innerHTML = `<div class="text-xs text-red-400 text-center">⚠️ ${esc(errText(err))}<br>تأكد من تفعيل MFA (TOTP) في إعدادات Supabase Auth.</div>`;
+            }
+        }
+
+        async function confirmEnroll(p) {
+            const btn = $(p + '-btn');
+            const code = $(p + '-code').value.trim();
+            if (!/^\d{6}$/.test(code)) return showMsg(p + '-err', 'أدخل 6 أرقام.');
+            showMsg(p + '-err', '');
+            setLoading(btn, true);
+            try {
+                const { error } = await db.auth.mfa.challengeAndVerify({ factorId: enrollingId, code });
+                if (error) return showMsg(p + '-err', '❌ الرمز غير صحيح. تأكد من ساعة هاتفك وحاول مرة أخرى.');
+                enrollingId = '';
+                if (p === 'gate') { await route(); } else { toast('تم تفعيل الجهاز ✓'); $('sec-enroll').innerHTML = ''; loadSecurity(); }
+            } catch (err) {
+                showMsg(p + '-err', '⚠️ ' + errText(err));
+            } finally { setLoading(btn, false); }
+        }
+
+        /* ========= التطبيق والتبويبات ========= */
+        let appReady = false;
+        function enterApp(user) {
+            $('admin-email').textContent = user.email;
+            $('mfa-warning').classList.toggle('hidden', REQUIRE_MFA);
+            if (!appReady) { buildTabs(); appReady = true; }
+            showView('app');
+            showTab(currentTab || TABS[0].id);
+        }
+
+        let currentTab = '';
+        function buildTabs() {
+            const html = TABS.map(t => `<button role="tab" id="tabbtn-${t.id}" aria-selected="false" aria-controls="tab-${t.id}" data-tab="${t.id}" class="tab px-3 text-xs font-bold text-slate-400 hover:text-slate-100 whitespace-nowrap flex items-center gap-1.5"><span aria-hidden="true">${t.icon}</span>${esc(t.label)}</button>`).join('');
+            $('tabs').innerHTML = html;
+            $('tabs-mobile').innerHTML = html.replaceAll('id="tabbtn-', 'data-m="1" id="mtabbtn-');
+            document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+        }
+
+        function showTab(id) {
+            currentTab = id;
+            TABS.forEach(t => {
+                const on = t.id === id;
+                const sec = $('tab-' + t.id);
+                sec.classList.toggle('hidden', !on);
+                if (on) { sec.style.animation = 'none'; void sec.offsetWidth; sec.style.animation = ''; }
+            });
+            document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === id));
+            const tab = TABS.find(t => t.id === id);
+            if (tab && tab.onShow) tab.onShow();
+        }
+
+        /* ========= التبويب 1: التحليلات ========= */
+        async function loadAnalytics() {
+            $('stats-body').innerHTML = '<tr><td colspan="5" class="p-6"><span class="spinner on !w-5 !h-5"></span></td></tr>';
+            const { data, error } = await db.from('admin_shop_stats').select('*').order('customers', { ascending: false });
+            if (error) {
+                $('stat-cards').innerHTML = '';
+                $('stats-body').innerHTML = `<tr><td colspan="5" class="p-6 text-xs text-red-400">⚠️ ${esc(errText(error))}<br>نفّذ ملف admin_setup.sql أولاً.</td></tr>`;
+                return;
+            }
+            const sum = (k) => data.reduce((a, r) => a + Number(r[k] || 0), 0);
+            const active = data.filter(r => r.is_active).length;
+            const cards = [
+                ['إجمالي المتاجر', num(data.length), `${num(active)} مفعّل`, '🏪'],
+                ['زبائن جدد اليوم', num(sum('new_today')), `من ${num(sum('customers'))} زبون`, '🆕'],
+                ['زبائن جدد (7 أيام)', num(sum('new_7d')), 'آخر أسبوع', '📈'],
+                ['الهدايا المسلّمة', num(sum('gifts')), 'منذ البداية', '🎁']
+            ];
+            $('stat-cards').innerHTML = cards.map((c, i) => `
+                <div class="reveal bg-[#1e293b] border border-slate-700 rounded-2xl p-4 space-y-1" style="--i:${i}">
+                    <div class="flex items-center justify-between text-xs text-slate-400"><span>${c[0]}</span><span aria-hidden="true">${c[3]}</span></div>
+                    <div class="text-2xl font-black text-slate-100">${c[1]}</div>
+                    <div class="text-[11px] text-slate-500">${c[2]}</div>
+                </div>`).join('');
+            $('stats-body').innerHTML = data.length ? data.map(r => `
+                <tr class="border-t border-slate-800 hover:bg-slate-800/40">
+                    <td class="p-3 text-start"><div class="font-bold">${esc(r.name)}</div><div class="text-[11px] text-slate-500 font-mono" dir="ltr">${esc(r.id)}</div></td>
+                    <td class="p-3">${num(r.customers)}</td><td class="p-3">${num(r.new_today)}</td><td class="p-3">${num(r.new_7d)}</td><td class="p-3">${num(r.gifts)}</td>
+                </tr>`).join('') : '<tr><td colspan="5" class="p-6 text-xs text-slate-400">لا توجد متاجر بعد. أضف أول تاجر من تبويب إدارة المتاجر.</td></tr>';
+        }
+
+        /* ========= التبويب 2: إدارة المتاجر ========= */
+        let shopsCache = [];
+        let editingId = null;
+        const tplLabel = (id) => (TEMPLATES.find(t => t.id === id) || TEMPLATES[0]).label;
+
+        async function loadShops() {
+            $('shops-body').innerHTML = '<tr><td colspan="6" class="p-6 text-center"><span class="spinner on !w-5 !h-5"></span></td></tr>';
+            const { data, error } = await db.from('shops').select(SHOP_COLS).order('name');
+            if (error) {
+                $('shops-body').innerHTML = `<tr><td colspan="6" class="p-6 text-xs text-red-400 text-center">⚠️ ${esc(errText(error))}<br>نفّذ ملف admin_setup.sql أولاً.</td></tr>`;
+                return;
+            }
+            shopsCache = data;
+            renderShops();
+        }
+
+        function renderShops() {
+            $('shops-body').innerHTML = shopsCache.length ? shopsCache.map(s => {
+                const logo = safeUrl(s.logo_url);
+                return `<tr class="border-t border-slate-800 hover:bg-slate-800/40">
+                    <td class="p-3"><div class="flex items-center gap-2.5">
+                        <div class="w-9 h-9 rounded-lg overflow-hidden bg-slate-800 border border-slate-700 flex items-center justify-center text-sm shrink-0">${logo ? `<img src="${esc(logo)}" alt="" class="w-full h-full object-cover" onerror="this.remove()">` : '🏪'}</div>
+                        <div class="min-w-0"><div class="font-bold truncate">${esc(s.name)}</div><div class="text-[11px] text-slate-500 font-mono" dir="ltr">${esc(s.id)}</div></div>
+                    </div></td>
+                    <td class="p-3 text-xs text-slate-300" dir="ltr">${esc(s.email)}</td>
+                    <td class="p-3 text-xs"><span class="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700">${esc(tplLabel(s.template_style))}</span></td>
+                    <td class="p-3 text-xs text-center">${num(s.max_points)}</td>
+                    <td class="p-3 text-center"><button class="switch" role="switch" aria-checked="${!!s.is_active}" aria-label="تفعيل ${esc(s.name)}" data-act="toggle" data-id="${esc(s.id)}"></button></td>
+                    <td class="p-3"><div class="flex gap-1.5 justify-end">
+                        <button class="btn px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs" data-act="edit" data-id="${esc(s.id)}">تعديل</button>
+                        <button class="btn px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs" data-act="link" data-id="${esc(s.id)}" title="نسخ رابط البطاقة">🔗</button>
+                    </div></td></tr>`;
+            }).join('') : '<tr><td colspan="6" class="p-6 text-xs text-slate-400 text-center">لا توجد متاجر بعد.</td></tr>';
+        }
+
+        $('shops-body').addEventListener('click', (e) => {
+            const b = e.target.closest('[data-act]');
+            if (!b) return;
+            const s = shopsCache.find(x => x.id === b.dataset.id);
+            if (!s) return;
+            if (b.dataset.act === 'edit') openShopModal(s);
+            if (b.dataset.act === 'toggle') toggleShop(s, b);
+            if (b.dataset.act === 'link') {
+                const url = new URL('index.html', location.href);
+                url.search = `?shop=${encodeURIComponent(s.id)}`;
+                navigator.clipboard.writeText(url.href).then(() => toast('تم نسخ رابط البطاقة ✓'), () => toast(url.href, true));
+            }
+        });
+
+        async function toggleShop(s, btn) {
+            if (s.is_active && !confirm(`تعطيل المتجر «${s.name}»؟ لن تعمل بطاقات زبائنه.`)) return;
+            btn.disabled = true;
+            const { data, error } = await db.from('shops').update({ is_active: !s.is_active }).eq('id', s.id).select('id');
+            btn.disabled = false;
+            if (error || !data || !data.length) return toast('تعذر تغيير الحالة: ' + (error ? errText(error) : 'صلاحيات RLS'), false);
+            s.is_active = !s.is_active;
+            renderShops();
+            toast(s.is_active ? 'تم تفعيل المتجر ✓' : 'تم تعطيل المتجر');
+        }
+
+        /* ---- النافذة ---- */
+        $('tpl-grid').innerHTML = TEMPLATES.map(t => `
+            <label class="tpl cursor-pointer">
+                <input type="radio" name="tpl" value="${t.id}" class="sr-only">
+                <div class="rounded-xl border border-slate-700 bg-[#0f172a] p-2 text-center space-y-1.5">
+                    <div class="h-8 rounded-lg" style="background:linear-gradient(135deg,${t.from},${t.to})"></div>
+                    <div class="text-[11px] text-slate-200">${t.label}</div>
+                </div>
+            </label>`).join('');
+
+        const slugify = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
+        let idTouched = false;
+
+        function previewImg(inputId, imgId) {
+            const url = safeUrl($(inputId).value), img = $(imgId);
+            if (!url) { img.classList.add('hidden'); img.removeAttribute('src'); return; }
+            img.onload = () => img.classList.remove('hidden');
+            img.onerror = () => img.classList.add('hidden');
+            img.src = url;
+        }
+        $('f-logo').addEventListener('input', () => previewImg('f-logo', 'logo-prev'));
+        $('f-cover').addEventListener('input', () => previewImg('f-cover', 'cover-prev'));
+        $('f-id').addEventListener('input', () => { idTouched = true; });
+        $('f-name').addEventListener('input', () => { if (!editingId && !idTouched) $('f-id').value = slugify($('f-name').value); });
+
+        function openShopModal(s) {
+            editingId = s ? s.id : null;
+            idTouched = !!s;
+            $('shop-form').reset();
+            showMsg('form-error', '');
+            $('modal-title').textContent = s ? `تعديل: ${s.name}` : 'إضافة تاجر جديد';
+            $('save-label').textContent = s ? 'حفظ التعديلات' : 'إنشاء التاجر';
+            $('pass-wrap').classList.toggle('hidden', !!s);
+            $('f-pass').required = !s;
+            $('f-id').disabled = !!s;
+            $('f-email').disabled = !!s;
+            if (!s) $('f-pass').value = genPassword();
+            const v = s || {};
+            $('f-name').value = v.name || '';
+            $('f-id').value = v.id || '';
+            $('f-email').value = v.email || '';
+            $('f-max').value = v.max_points || 5;
+            $('f-logo').value = v.logo_url || '';
+            $('f-cover').value = v.cover_url || '';
+            $('f-promo').value = v.promo_text || '';
+            const tpl = (v.template_style && TEMPLATES.some(t => t.id === v.template_style)) ? v.template_style : TEMPLATES[0].id;
+            document.querySelector(`input[name="tpl"][value="${tpl}"]`).checked = true;
+            previewImg('f-logo', 'logo-prev');
+            previewImg('f-cover', 'cover-prev');
+            $('shop-modal').classList.add('is-open');
+            setTimeout(() => $('f-name').focus(), 50);
+        }
+
+        function closeShopModal() { $('shop-modal').classList.remove('is-open'); }
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeShopModal(); });
+
+        async function saveShop(e) {
+            e.preventDefault();
+            const btn = $('save-btn');
+            const fail = (m) => showMsg('form-error', m);
+            fail('');
+
+            const row = {
+                name: $('f-name').value.trim(),
+                max_points: parseInt($('f-max').value, 10),
+                promo_text: $('f-promo').value.trim() || null,
+                logo_url: $('f-logo').value.trim() || null,
+                cover_url: $('f-cover').value.trim() || null,
+                template_style: document.querySelector('input[name="tpl"]:checked')?.value || TEMPLATES[0].id
+            };
+            if (!row.name) return fail('اسم المتجر مطلوب.');
+            if (!(row.max_points >= 1 && row.max_points <= 20)) return fail('عدد النقاط يجب أن يكون بين 1 و 20.');
+            if ((row.logo_url && !safeUrl(row.logo_url)) || (row.cover_url && !safeUrl(row.cover_url))) return fail('روابط الصور يجب أن تبدأ بـ https://');
+
+            setLoading(btn, true);
+            try {
+                if (editingId) {
+                    const { data, error } = await db.from('shops').update(row).eq('id', editingId).select(SHOP_COLS);
+                    if (error) throw error;
+                    if (!data || !data.length) throw new Error('لم يتم التحديث: لا صلاحية (RLS) أو المتجر غير موجود.');
+                    // مقارنة القيم المحفوظة فعلاً بما أُرسل، لاكتشاف أي حقل لم يُحفظ (مثلاً بسبب trigger أو قيد)
+                    const saved = data[0];
+                    const lost = Object.keys(row).filter(k => (saved[k] ?? null) !== (row[k] ?? null));
+                    if (lost.length) throw new Error('لم تُحفظ هذه الحقول: ' + lost.join(', '));
+                    toast('تم حفظ التعديلات ✓ وتظهر للزبائن خلال ثوانٍ');
+                } else {
+                    row.id = $('f-id').value.trim();
+                    row.email = $('f-email').value.trim().toLowerCase();
+                    const password = $('f-pass').value;
+                    if (!/^[a-z0-9][a-z0-9_-]{1,39}$/.test(row.id)) throw new Error('المعرّف: حروف إنجليزية صغيرة وأرقام و _ و - فقط.');
+                    if (password.length < 8) throw new Error('كلمة المرور 8 أحرف على الأقل.');
+                    if (shopsCache.some(s => s.id === row.id)) throw new Error('هذا المعرّف مستعمل من قبل.');
+
+                    // 1) إنشاء حساب المصادقة بعميل منفصل
+                    const { data: su, error: suErr } = await signupClient.auth.signUp({ email: row.email, password });
+                    if (suErr) throw new Error('تعذر إنشاء الحساب: ' + suErr.message);
+                    const existing = su.user && su.user.identities && su.user.identities.length === 0;
+
+                    // 2) إدخال المتجر
+                    row.is_active = true;
+                    const { error: insErr } = await db.from('shops').insert(row);
+                    if (insErr) throw new Error('أُنشئ الحساب لكن تعذر إدخال المتجر: ' + errText(insErr));
+                    toast(existing ? 'تم ربط المتجر بحساب موجود مسبقاً ✓' : 'تم إنشاء التاجر ✓ (قد يحتاج لتأكيد بريده قبل الدخول)');
+                }
+                closeShopModal();
+                loadShops();
+            } catch (err) {
+                fail('⚠️ ' + (err.message || errText(err)));
+            } finally { setLoading(btn, false); }
+        }
+
+        /* ========= التبويب 3: الأمان ========= */
+        async function loadSecurity() {
+            $('sec-enroll').innerHTML = '';
+            const [{ data: { session } }, aalRes, facRes] = await Promise.all([
+                db.auth.getSession(), db.auth.mfa.getAuthenticatorAssuranceLevel(), db.auth.mfa.listFactors()
+            ]);
+            const aal = aalRes.data?.currentLevel || '-';
+            $('sec-info').innerHTML = `
+                <div class="flex justify-between"><span class="text-slate-400">الحساب</span><span dir="ltr">${esc(session?.user?.email)}</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">مستوى المصادقة الحالي</span><span class="font-mono ${aal === 'aal2' ? 'text-emerald-400' : 'text-amber-400'}">${esc(aal)}</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">آخر دخول</span><span dir="ltr">${esc((session?.user?.last_sign_in_at || '').replace('T', ' ').slice(0, 16))}</span></div>`;
+            const list = facRes.data?.totp || [];
+            $('factor-list').innerHTML = list.length ? list.map(f => `
+                <li class="flex items-center justify-between gap-2 bg-[#0f172a] border border-slate-700 rounded-xl px-3 py-2.5">
+                    <div class="min-w-0"><div class="text-xs font-bold truncate">${esc(f.friendly_name || 'TOTP')}</div><div class="text-[11px] text-slate-500" dir="ltr">${esc((f.created_at || '').slice(0, 10))}</div></div>
+                    <button class="btn px-2.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg text-xs shrink-0" data-factor="${esc(f.id)}">إزالة</button>
+                </li>`).join('') : '<li class="text-xs text-slate-400">لا توجد أجهزة مفعّلة.</li>';
+            $('factor-list').dataset.count = list.length;
+        }
+
+        $('factor-list').addEventListener('click', async (e) => {
+            const b = e.target.closest('[data-factor]');
+            if (!b) return;
+            const count = Number($('factor-list').dataset.count || 0);
+            const msg = count <= 1 ? 'هذا آخر جهاز مفعّل. سيُطلب منك إعداد جهاز جديد عند الدخول القادم. متابعة؟' : 'إزالة هذا الجهاز؟';
+            if (!confirm(msg)) return;
+            const { error } = await db.auth.mfa.unenroll({ factorId: b.dataset.factor });
+            if (error) return toast('تعذرت الإزالة: ' + errText(error), false);
+            if (count <= 1) { await logout(); return; }
+            toast('تمت إزالة الجهاز');
+            loadSecurity();
+        });
+    </script>
+</body>
+</html>

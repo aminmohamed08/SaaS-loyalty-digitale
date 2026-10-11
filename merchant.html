@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>لوحة البائع - نظام الولاء</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <!-- إعدادات الأيقونة والتطبيق -->
+    <link rel="icon" type="image/png" href="logo-mybusiness_fikra-automation.png">
+    <link rel="apple-touch-icon" href="logo-mybusiness_fikra-automation.png">
+    <meta name="theme-color" content="#020617">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="لوحة البائع">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest-merchant.json">
+
+    <style>
+        :root { --ease-out: cubic-bezier(0.16, 1, 0.3, 1); }
+        body { font-family: 'Tajawal', sans-serif; }
+
+        @keyframes rise-in {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .reveal {
+            opacity: 0;
+            animation: rise-in 450ms var(--ease-out) forwards;
+            animation-delay: calc(var(--i, 0) * 70ms);
+        }
+
+        .btn {
+            transition: transform 150ms var(--ease-out), background-color 150ms ease-out, box-shadow 150ms ease-out, opacity 150ms ease-out;
+            will-change: transform;
+        }
+        .btn:hover  { transform: translateY(-1px); }
+        .btn:active { transform: translateY(0) scale(0.97); }
+        .btn:focus-visible, .field:focus-visible { outline: 2px solid #34d399; outline-offset: 2px; }
+        .field { transition: border-color 150ms ease-out, box-shadow 150ms ease-out; }
+        .field:focus { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); }
+
+        .btn.is-loading { pointer-events: none; opacity: 0.85; }
+        .spinner {
+            display: none; width: 16px; height: 16px;
+            border: 2px solid rgba(255,255,255,0.35);
+            border-top-color: #fff; border-radius: 9999px;
+            animation: spin 700ms linear infinite;
+        }
+        .btn.is-loading .spinner { display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @keyframes msg-in {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .msg-in { animation: msg-in 250ms var(--ease-out); }
+
+        @keyframes gift-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
+        .gift-pulse { animation: gift-pulse 1.6s ease-in-out infinite; }
+        #gift-action-container:not(.hidden) { animation: msg-in 350ms var(--ease-out); }
+
+        .shop-logo { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+
+        #install-sheet-backdrop { opacity: 0; pointer-events: none; transition: opacity 200ms ease-out; }
+        #install-sheet-backdrop.is-open { opacity: 1; pointer-events: auto; }
+        #install-sheet { transform: translateY(24px); opacity: 0; transition: transform 350ms var(--ease-out), opacity 250ms ease-out; }
+        #install-sheet-backdrop.is-open #install-sheet { transform: translateY(0); opacity: 1; }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 1ms !important;
+                animation-delay: 0ms !important;
+                transition-duration: 1ms !important;
+            }
+            .reveal { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-md bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-slate-800 p-6 space-y-5">
+
+        <!-- تحميل الجلسة -->
+        <div id="boot-section" class="py-10 flex justify-center" aria-live="polite">
+            <span class="spinner !inline-block !w-7 !h-7" aria-label="جارٍ التحميل"></span>
+        </div>
+
+        <!-- تسجيل الدخول بالبريد وكلمة المرور -->
+        <div id="merchant-login-section" class="hidden space-y-4">
+            <div class="text-center space-y-2 reveal" style="--i:0">
+                <div id="login-logo" class="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-2xl mx-auto flex items-center justify-center font-bold text-xl border border-emerald-500/30 overflow-hidden">🔐</div>
+                <h1 class="text-lg font-black text-emerald-400">تسجيل دخول البائع</h1>
+                <p class="text-xs text-slate-400">أدخل بريد المحل وكلمة المرور للوصول إلى لوحة التحكم</p>
+            </div>
+
+            <form onsubmit="handleMerchantLogin(event)" class="space-y-3">
+                <div class="reveal" style="--i:1">
+                    <label for="login-email" class="block text-xs text-slate-300 mb-1">البريد الإلكتروني للمحل</label>
+                    <input type="email" id="login-email" required autocomplete="email" inputmode="email" dir="ltr" placeholder="shop@example.com" class="field w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-100 focus:outline-none focus:border-emerald-500 text-right">
+                </div>
+                <div class="reveal" style="--i:2">
+                    <label for="login-password" class="block text-xs text-slate-300 mb-1">كلمة المرور</label>
+                    <input type="password" id="login-password" required autocomplete="current-password" dir="ltr" placeholder="أدخل كلمة المرور هنا" class="field w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-100 focus:outline-none focus:border-emerald-500 text-right">
+                </div>
+                <button type="submit" id="login-btn" class="btn reveal w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-sm shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2" style="--i:3">
+                    <span class="spinner" aria-hidden="true"></span>
+                    <span>دخول لوحة التحكم</span>
+                </button>
+            </form>
+            <div id="login-error" class="text-xs text-center text-red-400 hidden" role="alert"></div>
+        </div>
+
+        <!-- لوحة التحكم -->
+        <div id="merchant-dashboard" class="hidden space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3 reveal" style="--i:0">
+                <div class="flex items-center gap-2.5">
+                    <div id="header-logo" class="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 overflow-hidden flex items-center justify-center text-base">🏪</div>
+                    <div>
+                        <h1 class="text-base font-black text-emerald-400" id="display-shop-title">لوحة التحكم</h1>
+                        <p class="text-[11px] text-slate-400">المسح الضوئي وتسليم الهدايا</p>
+                    </div>
+                </div>
+                <button onclick="logoutMerchant()" class="btn px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl text-xs">
+                    خروج 🚪
+                </button>
+            </div>
+
+            <!-- كاميرا المسح الضوئي -->
+            <div class="space-y-2 bg-slate-950/40 p-4 rounded-2xl border border-slate-800 reveal" style="--i:1">
+                <button onclick="startScanner()" class="btn w-full py-3 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl text-xs shadow-md flex items-center justify-center gap-2">
+                    <span>📷</span> تشغيل كاميرا مسح كود الزبون
+                </button>
+                <div id="reader" class="hidden overflow-hidden rounded-xl border border-slate-700 mt-2"></div>
+                <button id="stop-scanner-btn" onclick="stopScanner()" class="btn w-full py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl text-xs hidden mt-2">
+                    إيقاف الكاميرا ✕
+                </button>
+            </div>
+
+            <!-- إضافة نقطة وتتبع الهدية -->
+            <div class="space-y-3 bg-slate-950/40 p-4 rounded-2xl border border-slate-800 reveal" style="--i:2">
+                <label for="merchant-phone" class="block text-xs font-bold text-slate-200">➕ تتبع وزيادة النقاط للزبون</label>
+                <div class="flex gap-2">
+                    <input type="text" id="merchant-phone" inputmode="text" autocomplete="off" placeholder="رقم الهاتف أو كود الزبون" class="field flex-1 min-w-0 px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-emerald-500">
+                    <button id="add-btn" onclick="addPointToCustomer()" class="btn px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-md whitespace-nowrap flex items-center gap-2">
+                        <span class="spinner" aria-hidden="true"></span>
+                        <span>إضافة نقطة</span>
+                    </button>
+                </div>
+
+                <div id="gift-action-container" class="hidden pt-2 border-t border-slate-800">
+                    <button id="gift-btn" onclick="deliverGiftAndReset()" class="btn gift-pulse w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs shadow-lg">
+                        🎁 تم تسليم الهدية وإعادة ضبط النقاط للصفر
+                    </button>
+                </div>
+
+                <div id="status-msg" class="text-xs text-center font-medium min-h-[22px] p-1.5 rounded-xl" aria-live="polite"></div>
+            </div>
+
+            <!-- إشعار ترويجي -->
+            <div class="bg-slate-800/60 p-3.5 rounded-2xl border border-slate-800 space-y-2 reveal" style="--i:3">
+                <label for="promo-input" class="block text-xs font-bold text-amber-400">📢 إرسال إشعار ترويجي فوري للزبائن</label>
+                <input type="text" id="promo-input" maxlength="160" placeholder="مثال: عرض خاص: قهوة ثانية مجانية!" class="field w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500">
+                <div class="flex gap-2">
+                    <button id="promo-send-btn" onclick="sendPromoNotice()" class="btn flex-1 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2">
+                        <span class="spinner" aria-hidden="true"></span>
+                        <span>إرسال الإشعار 🔔</span>
+                    </button>
+                    <button onclick="clearPromoNotice()" class="btn px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold rounded-xl text-xs">
+                        مسح
+                    </button>
+                </div>
+                <div id="promo-msg" class="text-[11px] text-center min-h-[16px] text-amber-300" aria-live="polite"></div>
+            </div>
+
+            <!-- تثبيت التطبيق -->
+            <button id="install-btn" onclick="installApp()" class="btn reveal w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 font-semibold rounded-xl text-xs flex items-center justify-center gap-2" style="--i:4">
+                <span>📱</span> تثبيت لوحة البائع كالتطبيق في الهاتف
+            </button>
+        </div>
+
+    </div>
+
+    <!-- تعليمات التثبيت -->
+    <div id="install-sheet-backdrop" class="fixed inset-0 bg-slate-950/70 flex items-end sm:items-center justify-center p-4 z-50" onclick="closeInstallSheet(event)">
+        <div id="install-sheet" class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="install-title">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl overflow-hidden bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-lg" id="sheet-logo">🏪</div>
+                <div>
+                    <h3 id="install-title" class="text-sm font-black text-emerald-400">ثبّت لوحة البائع كتطبيق</h3>
+                    <p class="text-[11px] text-slate-400">ستظهر على شاشتك الرئيسية بشعار المطعم</p>
+                </div>
+            </div>
+            <ol id="install-steps" class="space-y-2 text-xs text-slate-200 leading-relaxed list-decimal pr-5"></ol>
+            <button class="btn w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold rounded-xl text-xs" onclick="closeInstallSheet()">فهمت</button>
+        </div>
+    </div>
+
+    <script>
+        /* ========= اتصال Supabase ========= */
+        const SUPABASE_URL = "https://wjmcxewruhvtgffkfmlh.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqbWN4ZXdydWh2dGdmZmtmbWxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzOTg5MTgsImV4cCI6MjEwNjk3NDkxOH0.2u584JsGX96zEFOxv6s71BEonuuKIVh4xoCoQHgWxLQ";
+        const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: { persistSession: true, autoRefreshToken: true }
+        });
+        /* =================================== */
+
+        const DEFAULT_LOGO = "logo-mybusiness_fikra-automation.png";
+        const DEFAULT_MAX = 5;
+        const NET_ERR = "⚠️ تعذر الاتصال بالخادم. تأكد من الإنترنت وحاول مرة أخرى.";
+        const RED = "bg-red-500/10 text-red-400 border border-red-500/20";
+        const GREEN = "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+        const AMBER = "bg-amber-500/10 text-amber-400 border border-amber-500/20";
+        const SKY = "bg-sky-500/10 text-sky-400 border border-sky-500/20";
+
+        let shop = null;               // صف المحل الحالي من جدول shops
+        let pendingGiftId = '';        // customer_id في انتظار تسليم الهدية
+        let html5QrCode = null;
+        let deferredInstallPrompt = null;
+
+        const $ = (id) => document.getElementById(id);
+        const show = (id) => $(id).classList.remove('hidden');
+        const hide = (id) => $(id).classList.add('hidden');
+        const maxPoints = () => Math.max(1, shop?.max_points || DEFAULT_MAX);
+
+        window.addEventListener('DOMContentLoaded', init);
+
+        async function init() {
+            if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+            setupInstall();
+            setLogo($('login-logo'), 'المحل');
+
+            // استرجاع الجلسة المحفوظة (Supabase Auth)
+            try {
+                const { data } = await db.auth.getSession();
+                if (data.session && await loadShop(data.session.user.email)) {
+                    hide('boot-section');
+                    showDashboard();
+                    return;
+                }
+            } catch (err) { /* نعرض شاشة الدخول */ }
+            hide('boot-section');
+            show('merchant-login-section');
+
+            // انتهاء الجلسة من الخادم
+            db.auth.onAuthStateChange((event) => {
+                if (event === 'SIGNED_OUT' && shop) resetToLogin("❌ انتهت الجلسة، سجّل الدخول من جديد.");
+            });
+        }
+
+        async function loadShop(email) {
+            const cols = 'id,name,email,max_points,promo_text';
+            let res = await db.from('shops').select(cols + ',logo_url').ilike('email', email).maybeSingle();
+
+            if (res.error) {
+                console.warn('[loadShop] with logo_url failed:', res.error);
+                // إعادة المحاولة بدون logo_url في حالة عدم وجود العمود
+                res = await db.from('shops').select(cols).ilike('email', email).maybeSingle();
+            }
+
+            if (res.error) {
+                console.error('[loadShop] FAILED', {
+                    code: res.error.code,
+                    message: res.error.message,
+                    details: res.error.details,
+                    hint: res.error.hint,
+                    status: res.status
+                });
+                throw res.error;
+            }
+
+            console.log('[loadShop] row:', res.data);
+            shop = res.data;
+            return shop;
+        }
+
+        function setLogo(container, alt) {
+            if (!container) return;
+            const img = new Image();
+            img.className = 'shop-logo';
+            img.alt = alt || shop?.name || '';
+            img.onload = () => { container.textContent = ''; container.appendChild(img); };
+            img.onerror = () => { if (!img.src.endsWith(DEFAULT_LOGO)) img.src = DEFAULT_LOGO; };
+            img.src = shop?.logo_url || DEFAULT_LOGO;
+        }
+
+        function showStatus(el, classes, text) {
+            el.className = `text-xs text-center font-medium p-1.5 rounded-xl msg-in ${classes}`;
+            el.textContent = text;
+        }
+
+        /* ---------- تسجيل الدخول ---------- */
+        async function handleMerchantLogin(e) {
+            e.preventDefault();
+            const email = $('login-email').value.trim().toLowerCase();
+            const password = $('login-password').value;
+            const errorEl = $('login-error');
+            const btn = $('login-btn');
+
+            const showError = (text) => {
+                errorEl.textContent = text;
+                errorEl.classList.remove('hidden', 'msg-in');
+                void errorEl.offsetWidth;
+                errorEl.classList.add('msg-in');
+            };
+
+            btn.classList.add('is-loading');
+            try {
+                const { data, error } = await db.auth.signInWithPassword({ email, password });
+                if (error) {
+                    const bad = error.status === 400 || /invalid/i.test(error.message);
+                    showError(bad ? "❌ البريد أو كلمة المرور غير صحيحة." : NET_ERR);
+                    return;
+                }
+                if (!(await loadShop(data.user.email))) {
+                    await db.auth.signOut();
+                    showError("❌ هذا الحساب غير مرتبط بأي محل. تواصل مع المسؤول.");
+                    return;
+                }
+                errorEl.classList.add('hidden');
+                $('login-password').value = '';
+                showDashboard();
+            } catch (err) {
+                console.error('[login] error:', err);
+                showError(`⚠️ ${err.code || err.status || ''} ${err.message || NET_ERR}`);
+            } finally {
+                btn.classList.remove('is-loading');
+            }
+        }
+
+        function showDashboard() {
+            hide('merchant-login-section');
+            const dash = $('merchant-dashboard');
+            show('merchant-dashboard');
+            dash.querySelectorAll('.reveal').forEach(el => {
+                el.style.animation = 'none';
+                void el.offsetWidth;
+                el.style.animation = '';
+            });
+            $('display-shop-title').textContent = shop.name;
+            $('promo-input').value = shop.promo_text || '';
+            document.title = `لوحة البائع - ${shop.name}`;
+            ['header-logo', 'sheet-logo'].forEach(id => setLogo($(id)));
+            refreshInstallButton();
+        }
+
+        function resetToLogin(message) {
+            stopScanner();
+            shop = null;
+            pendingGiftId = '';
+            hide('merchant-dashboard');
+            hide('gift-action-container');
+            show('merchant-login-section');
+            $('login-password').value = '';
+            if (message) {
+                const errorEl = $('login-error');
+                errorEl.textContent = message;
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        async function logoutMerchant() {
+            try { await db.auth.signOut(); } catch (e) {}
+            resetToLogin();
+        }
+
+        /* ---------- كاميرا المسح ---------- */
+        function startScanner() {
+            show('reader');
+            show('stop-scanner-btn');
+
+            html5QrCode = new Html5Qrcode("reader");
+            html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 220, height: 220 } },
+                (decodedText) => {
+                    $('merchant-phone').value = decodedText.replace(/^(phone|customer):/, '');
+                    stopScanner();
+                    addPointToCustomer();
+                },
+                () => {}
+            ).catch(() => {
+                showStatus($('status-msg'), RED, "تعذر تشغيل الكاميرا. تأكد من إعطاء الصلاحية للمتصفح.");
+                stopScanner();
+            });
+        }
+
+        function stopScanner() {
+            const hideUI = () => { hide('reader'); hide('stop-scanner-btn'); };
+            const scanner = html5QrCode;
+            html5QrCode = null;
+            if (scanner) {
+                scanner.stop().then(hideUI).catch(hideUI);
+            } else {
+                hideUI();
+            }
+        }
+
+        /* ---------- الزبائن والنقاط ---------- */
+        // بحث بالهاتف أو بكود الزبون داخل هذا المحل فقط
+        async function findCustomer(rawQuery) {
+            const q = rawQuery.replace(/[^\w+\-]/g, '');   // تنظيف المدخل قبل استعماله في الفلتر
+            if (!q) return null;
+            const { data, error } = await db.from('customers')
+                .select('customer_id,name,phone,points,gifts_redeemed')
+                .eq('shop_id', shop.id)
+                .or(`phone.eq.${q},customer_id.eq.${q}`)
+                .limit(1);
+            if (error) throw error;
+            return data && data[0] ? data[0] : null;
+        }
+
+        function logEvent(customerId, type) {
+            return db.from('point_events').insert({ shop_id: shop.id, customer_id: customerId, event_type: type });
+        }
+
+        function isAuthError(err) {
+            return err && (err.status === 401 || err.status === 403 || err.code === 'PGRST301' || /jwt/i.test(err.message || ''));
+        }
+
+        async function addPointToCustomer() {
+            const inputVal = $('merchant-phone').value.trim();
+            const msgEl = $('status-msg');
+            const giftContainer = $('gift-action-container');
+            const btn = $('add-btn');
+
+            if (!inputVal) {
+                showStatus(msgEl, RED, 'المرجو مسح كود الزبون أو إدخال رقمه!');
+                giftContainer.classList.add('hidden');
+                return;
+            }
+
+            btn.classList.add('is-loading');
+            try {
+                const customer = await findCustomer(inputVal);
+                if (!customer) {
+                    showStatus(msgEl, RED, 'الزبون غير مسجل في النظام بهذا الرقم!');
+                    giftContainer.classList.add('hidden');
+                    return;
+                }
+
+                const max = maxPoints();
+                if (customer.points >= max) {
+                    pendingGiftId = customer.customer_id;
+                    giftContainer.classList.remove('hidden');
+                    showStatus(msgEl, AMBER, `⚠️ الزبون (${customer.name}) لديه ${max} نقاط كاملة وفي انتظار تسليم الهدية!`);
+                    return;
+                }
+
+                // تحديث مشروط: لا ينجح إلا إذا لم تتغير النقاط منذ القراءة (يمنع التكرار عند المسح المزدوج)
+                const newPoints = customer.points + 1;
+                const { data: updated, error } = await db.from('customers')
+                    .update({ points: newPoints })
+                    .eq('shop_id', shop.id).eq('customer_id', customer.customer_id).eq('points', customer.points)
+                    .select('points');
+                if (error) throw error;
+                if (!updated || updated.length === 0) {
+                    showStatus(msgEl, AMBER, 'تغيّرت نقاط الزبون للتو. أعد المحاولة.');
+                    return;
+                }
+
+                const log = await logEvent(customer.customer_id, 'point_added');
+                if (log.error) console.warn('point_events insert failed:', log.error);
+
+                giftContainer.classList.add('hidden');
+                let text = `✅ تمت إضافة نقطة بنجاح (${customer.name})! المجموع: ${newPoints}/${max}`;
+                if (newPoints >= max) {
+                    pendingGiftId = customer.customer_id;
+                    giftContainer.classList.remove('hidden');
+                    text += " 🎉 (استوفى جميع النقاط ومؤهل للهدية!)";
+                }
+                showStatus(msgEl, GREEN, text);
+            } catch (err) {
+                if (isAuthError(err)) { resetToLogin("❌ انتهت الجلسة، سجّل الدخول من جديد."); return; }
+                showStatus(msgEl, RED, NET_ERR);
+            } finally {
+                btn.classList.remove('is-loading');
+            }
+        }
+
+        async function deliverGiftAndReset() {
+            const msgEl = $('status-msg');
+            const giftContainer = $('gift-action-container');
+            const btn = $('gift-btn');
+            const query = pendingGiftId || $('merchant-phone').value.trim();
+
+            btn.classList.add('is-loading');
+            try {
+                const customer = await findCustomer(query);
+                if (!customer || customer.points < maxPoints()) {
+                    giftContainer.classList.add('hidden');
+                    showStatus(msgEl, RED, 'تعذر تسليم الهدية: الزبون غير موجود أو لم يكمل النقاط بعد.');
+                    return;
+                }
+
+                const { data: updated, error } = await db.from('customers')
+                    .update({ points: 0, gifts_redeemed: (customer.gifts_redeemed || 0) + 1 })
+                    .eq('shop_id', shop.id).eq('customer_id', customer.customer_id).eq('points', customer.points)
+                    .select('points');
+                if (error) throw error;
+                if (!updated || updated.length === 0) {
+                    showStatus(msgEl, AMBER, 'تغيّرت نقاط الزبون للتو. أعد المحاولة.');
+                    return;
+                }
+
+                const log = await logEvent(customer.customer_id, 'gift_redeemed');
+                if (log.error) console.warn('point_events insert failed:', log.error);
+
+                pendingGiftId = '';
+                giftContainer.classList.add('hidden');
+                $('merchant-phone').value = '';
+                showStatus(msgEl, SKY, "✨ تم تسليم الهدية بنجاح، وتم تصفير النقاط للزبون لبدء دورة جديدة!");
+            } catch (err) {
+                if (isAuthError(err)) { resetToLogin("❌ انتهت الجلسة، سجّل الدخول من جديد."); return; }
+                showStatus(msgEl, RED, NET_ERR);
+            } finally {
+                btn.classList.remove('is-loading');
+            }
+        }
+
+        /* ---------- الإشعارات الترويجية (shops.promo_text) ---------- */
+        async function savePromo(text) {
+            // select() يسمح بمعرفة هل تم التحديث فعلاً (RLS قد يمنعه بصمت)
+            const { data, error } = await db.from('shops').update({ promo_text: text }).eq('id', shop.id).select('promo_text');
+            if (error) throw error;
+            if (!data || data.length === 0) throw Object.assign(new Error('blocked'), { status: 403 });
+            shop.promo_text = data[0].promo_text;
+        }
+
+        async function sendPromoNotice() {
+            const text = $('promo-input').value.trim();
+            if (!text) return;
+            const btn = $('promo-send-btn');
+            btn.classList.add('is-loading');
+            try {
+                await savePromo(text);
+                flashPromoMsg("تم إرسال الإشعار بنجاح إلى بطاقات الزبائن ✓");
+            } catch (err) {
+                if (isAuthError(err)) { resetToLogin("❌ انتهت الجلسة، سجّل الدخول من جديد."); return; }
+                flashPromoMsg(NET_ERR);
+            } finally {
+                btn.classList.remove('is-loading');
+            }
+        }
+
+        async function clearPromoNotice() {
+            try {
+                await savePromo('');
+                $('promo-input').value = '';
+                flashPromoMsg("تم مسح الإشعار.");
+            } catch (err) {
+                if (isAuthError(err)) { resetToLogin("❌ انتهت الجلسة، سجّل الدخول من جديد."); return; }
+                flashPromoMsg(NET_ERR);
+            }
+        }
+
+        function flashPromoMsg(text) {
+            const el = $('promo-msg');
+            el.textContent = text;
+            el.classList.remove('msg-in');
+            void el.offsetWidth;
+            el.classList.add('msg-in');
+            clearTimeout(flashPromoMsg._t);
+            flashPromoMsg._t = setTimeout(() => { el.textContent = ''; }, 3000);
+        }
+
+        /* ---------- تثبيت التطبيق ---------- */
+        function isStandalone() {
+            return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        }
+
+        function isIOS() {
+            return /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        }
+
+        function setupInstall() {
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredInstallPrompt = e;
+                refreshInstallButton();
+            });
+            window.addEventListener('appinstalled', () => {
+                deferredInstallPrompt = null;
+                refreshInstallButton();
+            });
+        }
+
+        function refreshInstallButton() {
+            const btn = $('install-btn');
+            if (btn) btn.classList.toggle('hidden', isStandalone());
+        }
+
+        async function installApp() {
+            if (deferredInstallPrompt) {
+                deferredInstallPrompt.prompt();
+                try { await deferredInstallPrompt.userChoice; } catch (e) {}
+                deferredInstallPrompt = null;
+                refreshInstallButton();
+                return;
+            }
+            const items = isIOS()
+                ? [
+                    'افتح هذه الصفحة في متصفح <strong>Safari</strong>.',
+                    'اضغط على زر المشاركة <strong>(مربع بسهم لأعلى)</strong> أسفل الشاشة.',
+                    'اختر <strong>«إضافة إلى الشاشة الرئيسية»</strong> ثم اضغط <strong>إضافة</strong>.'
+                  ]
+                : [
+                    'اضغط على قائمة المتصفح <strong>(⋮ النقاط الثلاث)</strong>.',
+                    'اختر <strong>«تثبيت التطبيق»</strong> أو <strong>«إضافة إلى الشاشة الرئيسية»</strong>.',
+                    'أكّد بالضغط على <strong>تثبيت</strong>.'
+                  ];
+            $('install-steps').innerHTML = items.map(t => `<li>${t}</li>`).join('');
+            $('install-sheet-backdrop').classList.add('is-open');
+        }
+
+        function closeInstallSheet(e) {
+            if (e && e.target !== $('install-sheet-backdrop')) return;
+            $('install-sheet-backdrop').classList.remove('is-open');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') $('install-sheet-backdrop').classList.remove('is-open');
+        });
+    </script>
+</body>
+</html>
