@@ -55,6 +55,13 @@
         .tpl div { transition: border-color 150ms ease-out, box-shadow 150ms ease-out, transform 150ms var(--ease-out); }
         .tpl:hover div { transform: translateY(-1px); }
 
+        /* منطقة رفع الصور */
+        .dz { height: 8rem; border: 2px dashed #475569; border-radius: 0.75rem; background: #0f172a; display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer; transition: border-color 150ms ease-out, background-color 150ms ease-out, transform 150ms var(--ease-out); }
+        .dz:hover, .dz:focus-visible { border-color: #34d399; outline: none; }
+        .dz.is-over { border-color: #34d399; background: rgba(6, 78, 59, 0.25); transform: scale(1.02); }
+        .dz-empty { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; color: #94a3b8; text-align: center; padding: 8px; }
+        .dz img:not(.hidden) + .dz-empty { display: none; }
+
         /* إشعار */
         #toast { transform: translate(-50%, 16px); opacity: 0; transition: transform 250ms var(--ease-out), opacity 200ms ease-out; pointer-events: none; }
         #toast.is-on { transform: translate(-50%, 0); opacity: 1; }
@@ -252,19 +259,31 @@
                 </fieldset>
 
                 <div class="grid sm:grid-cols-2 gap-3">
-                    <div>
-                        <label for="f-logo" class="block text-xs text-slate-300 mb-1">رابط الشعار (https)</label>
-                        <div class="flex items-center gap-2">
-                            <input id="f-logo" type="url" dir="ltr" placeholder="https://..." class="field flex-1 min-w-0 px-3 py-2.5 bg-[#0f172a] border border-slate-700 rounded-xl text-xs text-right focus:outline-none focus:border-emerald-500">
-                            <div class="w-10 h-10 rounded-lg bg-slate-800 border border-slate-700 overflow-hidden shrink-0"><img id="logo-prev" alt="" class="w-full h-full object-cover hidden"></div>
+                    <div class="space-y-1.5">
+                        <span class="block text-xs text-slate-300">الشعار <span class="text-slate-500">(اختياري)</span></span>
+                        <div id="dz-logo" class="dz" role="button" tabindex="0" aria-label="رفع الشعار">
+                            <img id="logo-prev" alt="" class="hidden w-full h-full object-contain">
+                            <div class="dz-empty"><span class="text-xl" aria-hidden="true">🖼️</span><span>اسحب الصورة هنا أو اضغط للاختيار</span><span class="text-[10px] text-slate-500">PNG / JPG / WEBP</span></div>
+                        </div>
+                        <input type="file" id="file-logo" accept="image/png,image/jpeg,image/webp" class="sr-only" tabindex="-1">
+                        <div class="flex gap-2">
+                            <input id="f-logo" type="url" dir="ltr" placeholder="أو ألصق رابط https://" class="field flex-1 min-w-0 px-3 py-2 bg-[#0f172a] border border-slate-700 rounded-xl text-xs text-right focus:outline-none focus:border-emerald-500">
+                            <button type="button" onclick="clearImage('logo')" class="btn px-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs">إزالة</button>
                         </div>
                     </div>
-                    <div>
-                        <label for="f-cover" class="block text-xs text-slate-300 mb-1">رابط صورة الغلاف / البانر (https)</label>
-                        <input id="f-cover" type="url" dir="ltr" placeholder="https://..." class="field w-full px-3 py-2.5 bg-[#0f172a] border border-slate-700 rounded-xl text-xs text-right focus:outline-none focus:border-emerald-500">
+                    <div class="space-y-1.5">
+                        <span class="block text-xs text-slate-300">صورة الغلاف / البانر <span class="text-slate-500">(اختياري)</span></span>
+                        <div id="dz-cover" class="dz" role="button" tabindex="0" aria-label="رفع صورة الغلاف / البانر">
+                            <img id="cover-prev" alt="" class="hidden w-full h-full object-cover">
+                            <div class="dz-empty"><span class="text-xl" aria-hidden="true">🖼️</span><span>اسحب الصورة هنا أو اضغط للاختيار</span><span class="text-[10px] text-slate-500">PNG / JPG / WEBP</span></div>
+                        </div>
+                        <input type="file" id="file-cover" accept="image/png,image/jpeg,image/webp" class="sr-only" tabindex="-1">
+                        <div class="flex gap-2">
+                            <input id="f-cover" type="url" dir="ltr" placeholder="أو ألصق رابط https://" class="field flex-1 min-w-0 px-3 py-2 bg-[#0f172a] border border-slate-700 rounded-xl text-xs text-right focus:outline-none focus:border-emerald-500">
+                            <button type="button" onclick="clearImage('cover')" class="btn px-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs">إزالة</button>
+                        </div>
                     </div>
                 </div>
-                <div class="h-24 rounded-xl bg-slate-800 border border-slate-700 overflow-hidden"><img id="cover-prev" alt="" class="w-full h-full object-cover hidden"></div>
 
                 <div>
                     <label for="f-promo" class="block text-xs text-slate-300 mb-1">الإشعار الترويجي (اختياري)</label>
@@ -291,6 +310,12 @@
         const ADMIN_EMAIL = "mohamedaminelaada2008@gmail.com";   // يجب أن يطابق دالة is_super_admin() في SQL
         const REQUIRE_MFA = false;   // false = تعطيل التحقق بخطوتين مؤقتاً. غيّرها إلى true لإعادة تفعيله
         const SHOP_COLS = 'id,name,email,max_points,promo_text,logo_url,cover_url,template_style,is_active';
+
+        /* ---- رفع الصور (Supabase Storage) ---- */
+        const BUCKET = 'shop-assets';                       // اسم الـ bucket (عام)
+        const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+        const RAW_MAX_BYTES = 10 * 1024 * 1024;             // الحد قبل الضغط
+        const IMG_RULES = { logo: { maxDim: 512 }, cover: { maxDim: 1600 } };
 
         const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
         // عميل منفصل لإنشاء حسابات التجار حتى لا تُستبدل جلسة المدير
@@ -600,8 +625,43 @@
             img.onerror = () => img.classList.add('hidden');
             img.src = url;
         }
-        $('f-logo').addEventListener('input', () => previewImg('f-logo', 'logo-prev'));
-        $('f-cover').addEventListener('input', () => previewImg('f-cover', 'cover-prev'));
+        /* ---- منطقة السحب والإفلات ---- */
+        const pending = { logo: null, cover: null };   // ملفات مختارة لم تُرفع بعد (تُرفع عند الحفظ)
+        const objUrls = { logo: null, cover: null };
+
+        function setPending(kind, file) {
+            if (!ALLOWED_TYPES.includes(file.type)) return showMsg('form-error', 'الصيغ المسموحة: PNG أو JPG أو WEBP.');
+            if (file.size > RAW_MAX_BYTES) return showMsg('form-error', 'حجم الصورة كبير جداً (الحد 10MB).');
+            showMsg('form-error', '');
+            pending[kind] = file;
+            if (objUrls[kind]) URL.revokeObjectURL(objUrls[kind]);
+            objUrls[kind] = URL.createObjectURL(file);
+            const img = $(kind + '-prev');
+            img.src = objUrls[kind];
+            img.classList.remove('hidden');
+            $('f-' + kind).value = '';   // الملف المختار يتقدّم على الرابط
+        }
+
+        function clearImage(kind) {
+            pending[kind] = null;
+            if (objUrls[kind]) { URL.revokeObjectURL(objUrls[kind]); objUrls[kind] = null; }
+            $('file-' + kind).value = '';
+            $('f-' + kind).value = '';
+            const img = $(kind + '-prev');
+            img.classList.add('hidden');
+            img.removeAttribute('src');
+        }
+
+        ['logo', 'cover'].forEach(kind => {
+            const dz = $('dz-' + kind), input = $('file-' + kind);
+            dz.addEventListener('click', () => input.click());
+            dz.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
+            input.addEventListener('change', () => { if (input.files[0]) setPending(kind, input.files[0]); });
+            ['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add('is-over'); }));
+            ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove('is-over'); }));
+            dz.addEventListener('drop', (e) => { const f = e.dataTransfer.files[0]; if (f) setPending(kind, f); });
+            $('f-' + kind).addEventListener('input', () => { pending[kind] = null; previewImg('f-' + kind, kind + '-prev'); });
+        });
         $('f-id').addEventListener('input', () => { idTouched = true; });
         $('f-name').addEventListener('input', () => { if (!editingId && !idTouched) $('f-id').value = slugify($('f-name').value); });
 
@@ -609,6 +669,7 @@
             editingId = s ? s.id : null;
             idTouched = !!s;
             $('shop-form').reset();
+            ['logo', 'cover'].forEach(clearImage);
             showMsg('form-error', '');
             $('modal-title').textContent = s ? `تعديل: ${s.name}` : 'إضافة تاجر جديد';
             $('save-label').textContent = s ? 'حفظ التعديلات' : 'إنشاء التاجر';
@@ -636,16 +697,70 @@
         function closeShopModal() { $('shop-modal').classList.remove('is-open'); }
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeShopModal(); });
 
+        /* =====================================================================
+           دوال Supabase Storage (ضع أي دالة رفع/حذف جديدة هنا، قبل saveShop)
+           تستعمل العميل db (جلسة المدير) وليس signupClient
+           ===================================================================== */
+
+        // تصغير الصورة وتحويلها إلى WEBP لتسريع تحميل بطاقة الزبون
+        async function resizeImage(file, maxDim) {
+            try {
+                const bmp = await createImageBitmap(file);
+                const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
+                const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale);
+                const canvas = document.createElement('canvas');
+                canvas.width = w; canvas.height = h;
+                canvas.getContext('2d').drawImage(bmp, 0, 0, w, h);
+                const blob = await new Promise(res => canvas.toBlob(res, 'image/webp', 0.85));
+                if (blob && blob.size < file.size) return { blob, type: 'image/webp', ext: 'webp' };
+            } catch (e) { /* نرفع الملف الأصلي */ }
+            return { blob: file, type: file.type, ext: file.type.split('/')[1].replace('jpeg', 'jpg') };
+        }
+
+        // رفع صورة وإرجاع الرابط العام. اسم الملف فريد لكل رفع حتى يظهر التغيير فوراً بلا كاش قديم
+        async function uploadImage(shopId, kind, file) {
+            const { blob, type, ext } = await resizeImage(file, IMG_RULES[kind].maxDim);
+            const path = `${shopId}/${kind}-${Date.now()}.${ext}`;
+            const { error } = await db.storage.from(BUCKET).upload(path, blob, { contentType: type, cacheControl: '31536000', upsert: false });
+            if (error) throw new Error(`تعذر رفع ${kind === 'logo' ? 'الشعار' : 'الغلاف'}: ${error.message}`);
+            return db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+        }
+
+        // استخراج مسار الملف داخل الـ bucket من رابطه العام (للحذف)
+        function storagePathFromUrl(url) {
+            const m = String(url || '').match(new RegExp(`/storage/v1/object/public/${BUCKET}/(.+?)(?:\\?.*)?$`));
+            return m ? decodeURIComponent(m[1]) : null;
+        }
+
+        // حذف الصور القديمة بعد استبدالها (أخطاء الحذف لا توقف الحفظ)
+        async function removeOldImages(urls) {
+            const paths = urls.map(storagePathFromUrl).filter(Boolean);
+            if (!paths.length) return;
+            try { await db.storage.from(BUCKET).remove(paths); } catch (e) { console.warn('[storage] remove failed', e); }
+        }
+
+        // إشعار فوري لبطاقات الزبائن (Broadcast عام على قناة المتجر). الزبون يعيد جلب البيانات من public_shops
+        async function pingCustomers(shopId) {
+            try {
+                const ch = db.channel(`shop:${shopId}`);
+                await ch.send({ type: 'broadcast', event: 'shop_updated', payload: { id: shopId } });
+                db.removeChannel(ch);
+            } catch (e) { /* التريغر في قاعدة البيانات والاستطلاع كل 5 ثوانٍ كافيان */ }
+        }
+
         async function saveShop(e) {
             e.preventDefault();
             const btn = $('save-btn');
             const fail = (m) => showMsg('form-error', m);
             fail('');
 
+            const isEdit = !!editingId;
+            const id = isEdit ? editingId : $('f-id').value.trim();
             const row = {
                 name: $('f-name').value.trim(),
                 max_points: parseInt($('f-max').value, 10),
                 promo_text: $('f-promo').value.trim() || null,
+                // الشعار والغلاف اختياريان: الفراغ يُحفظ NULL ولا يمنع الحفظ
                 logo_url: $('f-logo').value.trim() || null,
                 cover_url: $('f-cover').value.trim() || null,
                 template_style: document.querySelector('input[name="tpl"]:checked')?.value || TEMPLATES[0].id
@@ -654,41 +769,60 @@
             if (!(row.max_points >= 1 && row.max_points <= 20)) return fail('عدد النقاط يجب أن يكون بين 1 و 20.');
             if ((row.logo_url && !safeUrl(row.logo_url)) || (row.cover_url && !safeUrl(row.cover_url))) return fail('روابط الصور يجب أن تبدأ بـ https://');
 
+            let email = '', password = '';
+            if (!isEdit) {
+                email = $('f-email').value.trim().toLowerCase();
+                password = $('f-pass').value;
+                if (!/^[a-z0-9][a-z0-9_-]{1,39}$/.test(id)) return fail('المعرّف: حروف إنجليزية صغيرة وأرقام و _ و - فقط.');
+                if (password.length < 8) return fail('كلمة المرور 8 أحرف على الأقل.');
+                if (shopsCache.some(s => s.id === id)) return fail('هذا المعرّف مستعمل من قبل.');
+            }
+
             setLoading(btn, true);
+            const label = $('save-label'), oldLabel = label.textContent;
+            const oldShop = isEdit ? shopsCache.find(s => s.id === id) : null;
             try {
-                if (editingId) {
-                    const { data, error } = await db.from('shops').update(row).eq('id', editingId).select(SHOP_COLS);
+                // 1) رفع الصور المختارة (إن وُجدت) إلى Storage
+                if (pending.logo || pending.cover) label.textContent = 'جارٍ رفع الصور...';
+                for (const kind of ['logo', 'cover']) {
+                    if (!pending[kind]) continue;
+                    const url = await uploadImage(id, kind, pending[kind]);
+                    row[kind + '_url'] = url;
+                    $('f-' + kind).value = url;   // عند فشل الحفظ لاحقاً لا يُعاد الرفع
+                    pending[kind] = null;
+                }
+
+                // 2) الحفظ في جدول shops
+                if (isEdit) {
+                    const { data, error } = await db.from('shops').update(row).eq('id', id).select(SHOP_COLS);
                     if (error) throw error;
                     if (!data || !data.length) throw new Error('لم يتم التحديث: لا صلاحية (RLS) أو المتجر غير موجود.');
-                    // مقارنة القيم المحفوظة فعلاً بما أُرسل، لاكتشاف أي حقل لم يُحفظ (مثلاً بسبب trigger أو قيد)
+                    // مقارنة القيم المحفوظة فعلاً بما أُرسل، لاكتشاف أي حقل لم يُحفظ
                     const saved = data[0];
                     const lost = Object.keys(row).filter(k => (saved[k] ?? null) !== (row[k] ?? null));
                     if (lost.length) throw new Error('لم تُحفظ هذه الحقول: ' + lost.join(', '));
-                    toast('تم حفظ التعديلات ✓ وتظهر للزبائن خلال ثوانٍ');
                 } else {
-                    row.id = $('f-id').value.trim();
-                    row.email = $('f-email').value.trim().toLowerCase();
-                    const password = $('f-pass').value;
-                    if (!/^[a-z0-9][a-z0-9_-]{1,39}$/.test(row.id)) throw new Error('المعرّف: حروف إنجليزية صغيرة وأرقام و _ و - فقط.');
-                    if (password.length < 8) throw new Error('كلمة المرور 8 أحرف على الأقل.');
-                    if (shopsCache.some(s => s.id === row.id)) throw new Error('هذا المعرّف مستعمل من قبل.');
-
-                    // 1) إنشاء حساب المصادقة بعميل منفصل
-                    const { data: su, error: suErr } = await signupClient.auth.signUp({ email: row.email, password });
+                    // إنشاء حساب المصادقة بعميل منفصل ثم إدخال المتجر
+                    const { data: su, error: suErr } = await signupClient.auth.signUp({ email, password });
                     if (suErr) throw new Error('تعذر إنشاء الحساب: ' + suErr.message);
                     const existing = su.user && su.user.identities && su.user.identities.length === 0;
-
-                    // 2) إدخال المتجر
-                    row.is_active = true;
-                    const { error: insErr } = await db.from('shops').insert(row);
+                    const { error: insErr } = await db.from('shops').insert({ ...row, id, email, is_active: true });
                     if (insErr) throw new Error('أُنشئ الحساب لكن تعذر إدخال المتجر: ' + errText(insErr));
-                    toast(existing ? 'تم ربط المتجر بحساب موجود مسبقاً ✓' : 'تم إنشاء التاجر ✓ (قد يحتاج لتأكيد بريده قبل الدخول)');
+                    if (existing) toast('تم ربط المتجر بحساب موجود مسبقاً ✓');
                 }
+
+                // 3) تنظيف الصور القديمة المستبدلة + إشعار الزبائن فوراً
+                if (oldShop) removeOldImages(['logo_url', 'cover_url'].filter(k => oldShop[k] && oldShop[k] !== row[k]).map(k => oldShop[k]));
+                pingCustomers(id);
+                toast(isEdit ? 'تم الحفظ ✓ وتظهر التغييرات عند الزبائن فوراً' : 'تم إنشاء التاجر ✓ (قد يحتاج لتأكيد بريده قبل الدخول)');
                 closeShopModal();
                 loadShops();
             } catch (err) {
                 fail('⚠️ ' + (err.message || errText(err)));
-            } finally { setLoading(btn, false); }
+            } finally {
+                label.textContent = oldLabel;
+                setLoading(btn, false);
+            }
         }
 
         /* ========= التبويب 3: الأمان ========= */
